@@ -1,0 +1,195 @@
+-- What is the total revenue
+select sum(net_sales) as total_revenue
+from sales;
+-- what is the total profit?
+select sum(profit)
+from sales;
+
+-- What is the overall profit margin?
+select
+    round(sum(profit) / nullif(sum(net_sales), 0) * 100, 2) as overall_profit_margin
+from sales;
+
+-- Which customer segments generate the highest total sales and profit?
+select customer_segment,sum(net_sales) as total_sales,
+sum(profit ) as total_profit
+from sales
+group by customer_segment
+order by total_sales;
+
+-- Who are the top 10 customers based on total revenue, and how many orders has each customer placed?
+create index idx_sales_customer_id
+on sales(customer_id);
+
+select
+c.customer_id,
+c.customer_name,
+sum(s.net_sales),
+count(s.order_id)
+from customer c
+join sales s
+on c.customer_id=s.customer_id
+group by c.customer_id,c.customer_name
+limit 10;
+
+select * from sales
+limit 10;
+
+select count(*) as total_rows
+from sales;
+
+explain
+select
+    c.customer_id,
+    c.customer_name,
+    sum(s.net_sales) as total_sales,
+    count(s.order_id) as total_orders
+from customer c
+join sales s
+    on c.customer_id = s.customer_id
+group by c.customer_id, c.customer_name
+limit 10;
+
+show indexes from sales;
+
+-- do repeat customers generate more revenue and profit than non-repeat customers?
+
+select
+    case
+        when order_count > 1 then 'repeat'
+        else 'non-repeat'
+    end as customer_type,
+    sum(total_sales) as total_revenue,
+    sum(total_profit) as total_profit
+from (
+    select
+        customer_id,
+        count(distinct order_id) as order_count,
+        sum(net_sales) as total_sales,
+        sum(profit) as total_profit
+    from sales
+    group by customer_id
+) as customer_summary
+group by customer_type;
+
+
+-- which regions have the highest sales, profit, and number of customers
+
+select
+    s.region,
+    sum(s.net_sales) as total_sales,
+    sum(s.profit) as total_profit,
+    count(distinct s.customer_id) as total_customers
+from sales s
+group by s.region
+order by total_sales desc;
+
+
+-- which 10 products generate the highest revenue
+
+select
+    p.product_name,
+    sum(o.net_sales) as total_revenue
+from orders o
+join product p
+    on o.product_id = p.product_id
+group by p.product_name
+order by total_revenue desc
+limit 10;
+
+-- which product categories generate high revenue but relatively low profit
+
+select
+    p.category,
+    sum(o.net_sales) as total_revenue,
+    sum(o.profit) as total_profit,
+    round(sum(o.profit) / nullif(sum(o.net_sales), 0) * 100, 2) as profit_margin
+from orders o
+join product p
+    on o.product_id = p.product_id
+group by p.category
+order by total_revenue desc;
+
+
+-- which brands generate the highest total profit
+select
+    p.brand,
+    sum(o.profit) as total_profit
+from orders o
+join product p
+    on o.product_id = p.product_id
+group by p.brand
+order by total_profit desc;
+
+
+-- which products have high sales quantity but low profit
+
+select
+    p.product_name,
+    sum(o.quantity) as total_quantity,
+    sum(o.profit) as total_profit
+from orders o
+join product p
+    on o.product_id = p.product_id
+group by p.product_name
+order by total_quantity desc, total_profit asc;
+
+-- which product categories are most popular among different customer segments
+
+select
+    s.customer_segment,
+    p.category,
+    sum(o.quantity) as total_quantity,
+    sum(o.net_sales) as total_sales
+from sales s
+join orders o
+    on s.order_id = o.order_id
+join product p
+    on o.product_id = p.product_id
+group by s.customer_segment, p.category
+order by s.customer_segment, total_quantity desc;
+
+-- which customers have purchased the highest number of different products
+
+select
+    s.customer_id,
+    count(distinct o.product_id) as different_products
+from sales s
+join orders o
+    on s.order_id = o.order_id
+group by s.customer_id
+order by different_products desc
+limit 10;
+
+-- which marketing channels generate the highest revenue and profit
+
+select
+    marketing_channel,
+    sum(net_sales) as total_revenue,
+    sum(profit) as total_profit
+from sales
+group by marketing_channel
+order by total_revenue desc;
+
+-- which campaigns generate the highest sales, and how many orders came from each campaign
+
+select
+    campaign,
+    sum(net_sales) as total_sales,
+    count(distinct order_id) as total_orders
+from sales
+group by campaign
+order by total_sales desc;
+
+-- which shipping methods or warehouses have the highest late-delivery rate
+
+select
+    shipping_method,
+    round(
+        sum(case when delivery_status = 'late' then 1 else 0 end)
+        / count(*) * 100,
+        2
+    ) as late_delivery_rate
+from sales
+group by shipping_method
+order by late_delivery_rate desc;
